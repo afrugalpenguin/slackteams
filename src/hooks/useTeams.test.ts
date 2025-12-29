@@ -54,7 +54,7 @@ describe('useTeams', () => {
 
   const mockMessage = {
     id: '1234567890123',
-    body: { content: 'Hello world' },
+    body: { content: 'Hello world', contentType: 'html' as const },
     createdDateTime: '2024-01-01T12:00:00Z',
   };
 

@@ -49,6 +49,7 @@ describe('useAuth', () => {
     id: '12345678-1234-1234-1234-123456789abc',
     displayName: 'Test User',
     mail: 'test@example.com',
+    userPrincipalName: 'test@example.com',
   };
 
   beforeEach(() => {
