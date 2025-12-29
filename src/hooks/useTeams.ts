@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import {
   getJoinedTeams,
@@ -207,6 +207,22 @@ export function useTeams() {
     }
   }, [isAuthenticated, loadTeams, loadChats]);
 
+  // Track document visibility to pause polling when tab is hidden
+  const [isVisible, setIsVisible] = useState(() =>
+    typeof document !== 'undefined' ? document.visibilityState === 'visible' : true
+  );
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setIsVisible(document.visibilityState === 'visible');
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
   // Polling for new messages
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const messagesRef = useRef<ChatMessage[]>(messages);
@@ -223,8 +239,11 @@ export function useTeams() {
       pollingRef.current = null;
     }
 
-    // Don't poll if no channel/chat is selected or not authenticated
-    if (!selectedItem || !isAuthenticated) {
+    // Don't poll if no channel/chat is selected, not authenticated, or tab is hidden
+    if (!selectedItem || !isAuthenticated || !isVisible) {
+      if (!isVisible && selectedItem) {
+        logger.debug('Paused message polling (tab hidden)');
+      }
       return;
     }
 
@@ -255,6 +274,9 @@ export function useTeams() {
       }
     };
 
+    // Fetch immediately when tab becomes visible to catch up
+    pollMessages();
+
     // Start polling
     pollingRef.current = setInterval(pollMessages, POLLING_INTERVAL);
     logger.debug('Started message polling');
@@ -267,7 +289,7 @@ export function useTeams() {
         logger.debug('Stopped message polling');
       }
     };
-  }, [selectedItem, isAuthenticated, setMessages]);
+  }, [selectedItem, isAuthenticated, isVisible, setMessages]);
 
   return {
     teams,
