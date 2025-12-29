@@ -61,6 +61,11 @@ export function useAuth() {
         setAuthenticated(true);
       }
     } catch (error) {
+      // User cancelled the popup - not an error
+      if (error instanceof Error && error.message?.includes('user_cancelled')) {
+        logger.debug('User cancelled login');
+        return;
+      }
       logger.error('Login error:', error);
       setAuthError('Failed to sign in. Please try again.');
       throw error;
@@ -91,6 +96,11 @@ export function useAuth() {
         setAuthenticated(true);
       }
     } catch (error) {
+      // User cancelled the popup - not an error, just restore previous state
+      if (error instanceof Error && error.message?.includes('user_cancelled')) {
+        logger.debug('User cancelled account switch');
+        return;
+      }
       logger.error('Switch account error:', error);
       throw error;
     } finally {
