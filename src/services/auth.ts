@@ -45,6 +45,7 @@ export const graphScopes = [
 ];
 
 let msalInstance: PublicClientApplication | null = null;
+let msalInitPromise: Promise<PublicClientApplication> | null = null;
 
 // Login rate limiting to prevent abuse
 const LOGIN_RATE_LIMIT = {
@@ -78,9 +79,19 @@ export async function initializeMsal(): Promise<PublicClientApplication> {
     return msalInstance;
   }
 
-  msalInstance = new PublicClientApplication(msalConfig);
-  await msalInstance.initialize();
-  return msalInstance;
+  // Prevent race condition - reuse existing initialization promise
+  if (msalInitPromise) {
+    return msalInitPromise;
+  }
+
+  msalInitPromise = (async () => {
+    const instance = new PublicClientApplication(msalConfig);
+    await instance.initialize();
+    msalInstance = instance;
+    return instance;
+  })();
+
+  return msalInitPromise;
 }
 
 export async function getMsalInstance(): Promise<PublicClientApplication> {
