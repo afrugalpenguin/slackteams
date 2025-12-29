@@ -1,7 +1,14 @@
 import { Client } from '@microsoft/microsoft-graph-client';
 import { getAccessToken, clearCachedAccounts } from './auth';
 import { useAppStore } from '../stores/appStore';
-import { safeApiCall } from '../utils';
+import {
+  safeApiCall,
+  validateTeamId,
+  validateChannelId,
+  validateChatId,
+  validateMessageId,
+  validateUserId,
+} from '../utils';
 import type {
   User,
   Team,
@@ -12,34 +19,46 @@ import type {
 } from '../types';
 
 let graphClient: Client | null = null;
+let graphClientPromise: Promise<Client> | null = null;
 
 async function getGraphClient(): Promise<Client> {
   if (graphClient) {
     return graphClient;
   }
 
-  graphClient = Client.init({
-    authProvider: async (done) => {
-      const token = await getAccessToken();
-      if (token) {
-        done(null, token);
-      } else {
-        // Reset auth state and clear cache when token is unavailable
-        graphClient = null;
-        await clearCachedAccounts();
-        useAppStore.getState().setAuthenticated(false);
-        useAppStore.getState().setCurrentUser(null);
-        done(new Error('No access token available - please log in again'), null);
-      }
-    },
-  });
+  // Prevent race condition - reuse existing initialization promise
+  if (graphClientPromise) {
+    return graphClientPromise;
+  }
 
-  return graphClient;
+  graphClientPromise = (async () => {
+    const client = Client.init({
+      authProvider: async (done) => {
+        const token = await getAccessToken();
+        if (token) {
+          done(null, token);
+        } else {
+          // Reset auth state and clear cache when token is unavailable
+          graphClient = null;
+          graphClientPromise = null;
+          await clearCachedAccounts();
+          useAppStore.getState().setAuthenticated(false);
+          useAppStore.getState().setCurrentUser(null);
+          done(new Error('No access token available - please log in again'), null);
+        }
+      },
+    });
+    graphClient = client;
+    return client;
+  })();
+
+  return graphClientPromise;
 }
 
 // Reset client (useful after logout)
 export function resetGraphClient(): void {
   graphClient = null;
+  graphClientPromise = null;
 }
 
 // User operations
@@ -57,7 +76,9 @@ export async function getCurrentUser(): Promise<User> {
 export async function getUserPhoto(userId?: string): Promise<string | null> {
   try {
     const client = await getGraphClient();
-    const endpoint = userId ? `/users/${userId}/photo/$value` : '/me/photo/$value';
+    const endpoint = userId
+      ? `/users/${validateUserId(userId)}/photo/$value`
+      : '/me/photo/$value';
     const response = await client.api(endpoint).get();
     const blob = new Blob([response], { type: 'image/jpeg' });
     return URL.createObjectURL(blob);
@@ -79,10 +100,11 @@ export async function getJoinedTeams(): Promise<Team[]> {
 }
 
 export async function getTeamChannels(teamId: string): Promise<Channel[]> {
+  const validTeamId = validateTeamId(teamId);
   return safeApiCall(async () => {
     const client = await getGraphClient();
     const response = await client
-      .api(`/teams/${teamId}/channels`)
+      .api(`/teams/${validTeamId}/channels`)
       .select('id,displayName,description,membershipType,webUrl')
       .get();
     return response.value;
@@ -95,10 +117,12 @@ export async function getChannelMessages(
   channelId: string,
   top: number = 50
 ): Promise<ChatMessage[]> {
+  const validTeamId = validateTeamId(teamId);
+  const validChannelId = validateChannelId(channelId);
   return safeApiCall(async () => {
     const client = await getGraphClient();
     const response = await client
-      .api(`/teams/${teamId}/channels/${channelId}/messages`)
+      .api(`/teams/${validTeamId}/channels/${validChannelId}/messages`)
       .top(top)
       .get();
 
@@ -117,10 +141,13 @@ export async function getMessageReplies(
   channelId: string,
   messageId: string
 ): Promise<ChatMessage[]> {
+  const validTeamId = validateTeamId(teamId);
+  const validChannelId = validateChannelId(channelId);
+  const validMessageId = validateMessageId(messageId);
   return safeApiCall(async () => {
     const client = await getGraphClient();
     const response = await client
-      .api(`/teams/${teamId}/channels/${channelId}/messages/${messageId}/replies`)
+      .api(`/teams/${validTeamId}/channels/${validChannelId}/messages/${validMessageId}/replies`)
       .get();
 
     // Sort client-side in chronological order (oldest first)
@@ -138,6 +165,8 @@ export async function sendChannelMessage(
   channelId: string,
   content: string
 ): Promise<ChatMessage> {
+  const validTeamId = validateTeamId(teamId);
+  const validChannelId = validateChannelId(channelId);
   return safeApiCall(async () => {
     const client = await getGraphClient();
     const message = {
@@ -147,7 +176,7 @@ export async function sendChannelMessage(
       },
     };
     const response = await client
-      .api(`/teams/${teamId}/channels/${channelId}/messages`)
+      .api(`/teams/${validTeamId}/channels/${validChannelId}/messages`)
       .post(message);
     return response;
   }, 'sendChannelMessage');
@@ -159,6 +188,9 @@ export async function replyToMessage(
   messageId: string,
   content: string
 ): Promise<ChatMessage> {
+  const validTeamId = validateTeamId(teamId);
+  const validChannelId = validateChannelId(channelId);
+  const validMessageId = validateMessageId(messageId);
   return safeApiCall(async () => {
     const client = await getGraphClient();
     const reply = {
@@ -168,7 +200,7 @@ export async function replyToMessage(
       },
     };
     const response = await client
-      .api(`/teams/${teamId}/channels/${channelId}/messages/${messageId}/replies`)
+      .api(`/teams/${validTeamId}/channels/${validChannelId}/messages/${validMessageId}/replies`)
       .post(reply);
     return response;
   }, 'replyToMessage');
@@ -199,10 +231,11 @@ export async function getChatMessages(
   chatId: string,
   top: number = 50
 ): Promise<ChatMessage[]> {
+  const validChatId = validateChatId(chatId);
   return safeApiCall(async () => {
     const client = await getGraphClient();
     const response = await client
-      .api(`/me/chats/${chatId}/messages`)
+      .api(`/me/chats/${validChatId}/messages`)
       .top(top)
       .get();
 
@@ -220,6 +253,7 @@ export async function sendChatMessage(
   chatId: string,
   content: string
 ): Promise<ChatMessage> {
+  const validChatId = validateChatId(chatId);
   return safeApiCall(async () => {
     const client = await getGraphClient();
     const message = {
@@ -229,7 +263,7 @@ export async function sendChatMessage(
       },
     };
     const response = await client
-      .api(`/me/chats/${chatId}/messages`)
+      .api(`/me/chats/${validChatId}/messages`)
       .post(message);
     return response;
   }, 'sendChatMessage');
@@ -237,9 +271,10 @@ export async function sendChatMessage(
 
 // Presence
 export async function getPresence(userId: string): Promise<Presence> {
+  const validUserId = validateUserId(userId);
   return safeApiCall(async () => {
     const client = await getGraphClient();
-    const response = await client.api(`/users/${userId}/presence`).get();
+    const response = await client.api(`/users/${validUserId}/presence`).get();
     return response;
   }, 'getPresence');
 }
@@ -247,11 +282,12 @@ export async function getPresence(userId: string): Promise<Presence> {
 export async function getMultiplePresence(userIds: string[]): Promise<Presence[]> {
   if (userIds.length === 0) return [];
 
+  const validUserIds = userIds.map((id) => validateUserId(id));
   return safeApiCall(async () => {
     const client = await getGraphClient();
     const response = await client
       .api('/communications/getPresencesByUserId')
-      .post({ ids: userIds });
+      .post({ ids: validUserIds });
     return response.value;
   }, 'getMultiplePresence');
 }

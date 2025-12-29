@@ -17,9 +17,11 @@ export function useAuth() {
     isAuthenticated,
     isLoading,
     currentUser,
+    authError,
     setAuthenticated,
     setLoading,
     setCurrentUser,
+    setAuthError,
     reset,
   } = useAppStore();
 
@@ -50,6 +52,7 @@ export function useAuth() {
 
   const login = useCallback(async () => {
     setLoading(true);
+    setAuthError(null);
     try {
       const account = await msalLogin();
       if (account) {
@@ -58,12 +61,18 @@ export function useAuth() {
         setAuthenticated(true);
       }
     } catch (error) {
+      // User cancelled the popup - not an error
+      if (error instanceof Error && error.message?.includes('user_cancelled')) {
+        logger.debug('User cancelled login');
+        return;
+      }
       logger.error('Login error:', error);
+      setAuthError('Failed to sign in. Please try again.');
       throw error;
     } finally {
       setLoading(false);
     }
-  }, [setLoading, setCurrentUser, setAuthenticated]);
+  }, [setLoading, setCurrentUser, setAuthenticated, setAuthError]);
 
   const logout = useCallback(async () => {
     try {
@@ -87,6 +96,11 @@ export function useAuth() {
         setAuthenticated(true);
       }
     } catch (error) {
+      // User cancelled the popup - not an error, just restore previous state
+      if (error instanceof Error && error.message?.includes('user_cancelled')) {
+        logger.debug('User cancelled account switch');
+        return;
+      }
       logger.error('Switch account error:', error);
       throw error;
     } finally {
@@ -102,6 +116,7 @@ export function useAuth() {
     isAuthenticated,
     isLoading,
     currentUser,
+    authError,
     login,
     logout,
     switchAccount,
