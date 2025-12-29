@@ -1,0 +1,77 @@
+@import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    @apply h-full w-full m-0 p-0;
+  }
+
+  body {
+    @apply bg-white dark:bg-gray-900 text-gray-900 dark:text-white;
+    font-family: 'Lato', system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer components {
+  /* Scrollbar styling for Slack-like appearance */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.3) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: rgba(255,255,255,0.3);
+    border-radius: 4px;
+  }
+
+  /* Message hover effects */
+  .message-hover:hover {
+    @apply bg-gray-50 dark:bg-gray-800/50;
+  }
+
+  /* Channel item styling */
+  .channel-item {
+    @apply px-4 py-1 mx-2 rounded cursor-pointer transition-colors;
+  }
+
+  .channel-item:hover {
+    @apply bg-sidebar-hover;
+  }
+
+  .channel-item.active {
+    @apply bg-sidebar-active text-white;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Toast slide-in animation */
+  .animate-slide-in-right {
+    animation: slideInRight 0.3s ease-out;
+  }
+
+  @keyframes slideInRight {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+}
