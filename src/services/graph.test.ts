@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Use vi.hoisted to define mocks
-const { mockApi, mockGet, mockPost, mockTop, mockSelect, mockExpand } = vi.hoisted(() => {
+const { mockApi, mockGet, mockPost, mockSelect } = vi.hoisted(() => {
   const mockTop = vi.fn();
   const mockSelect = vi.fn();
   const mockExpand = vi.fn();
