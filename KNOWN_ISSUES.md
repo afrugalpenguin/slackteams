@@ -74,6 +74,28 @@ When DOMPurify was integrated, it caused initialization issues that resulted in 
 
 ---
 
+## 4. MSAL Popup COOP Warning
+
+**Status:** Not fixed - cosmetic issue
+
+**Current Behavior:**
+Console shows: `Cross-Origin-Opener-Policy policy would block the window.closed call.`
+
+**Why This Happens:**
+Microsoft's login page sets `Cross-Origin-Opener-Policy` headers for security, which isolates the popup window from the parent. This prevents MSAL from polling `window.closed` to detect when the user closes the popup.
+
+**Impact:**
+Cosmetic only - the auth flow still completes successfully. MSAL's internal popup detection may be slightly less efficient.
+
+**Potential Fixes:**
+1. Switch from `loginPopup` to `loginRedirect` flow (changes UX)
+2. Wait for MSAL library updates that handle COOP better
+3. Configure server-side COOP headers (not applicable for external Microsoft login)
+
+**Decision:** Leave as-is since it doesn't affect functionality.
+
+---
+
 ## Notes
 
 These issues were discovered during a security hardening effort. The following security improvements WERE successfully applied:
