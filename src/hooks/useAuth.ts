@@ -17,9 +17,11 @@ export function useAuth() {
     isAuthenticated,
     isLoading,
     currentUser,
+    authError,
     setAuthenticated,
     setLoading,
     setCurrentUser,
+    setAuthError,
     reset,
   } = useAppStore();
 
@@ -50,6 +52,7 @@ export function useAuth() {
 
   const login = useCallback(async () => {
     setLoading(true);
+    setAuthError(null);
     try {
       const account = await msalLogin();
       if (account) {
@@ -59,11 +62,12 @@ export function useAuth() {
       }
     } catch (error) {
       logger.error('Login error:', error);
+      setAuthError('Failed to sign in. Please try again.');
       throw error;
     } finally {
       setLoading(false);
     }
-  }, [setLoading, setCurrentUser, setAuthenticated]);
+  }, [setLoading, setCurrentUser, setAuthenticated, setAuthError]);
 
   const logout = useCallback(async () => {
     try {
@@ -102,6 +106,7 @@ export function useAuth() {
     isAuthenticated,
     isLoading,
     currentUser,
+    authError,
     login,
     logout,
     switchAccount,

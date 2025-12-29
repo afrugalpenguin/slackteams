@@ -35,6 +35,7 @@ interface AppState {
   isAuthenticated: boolean;
   isLoading: boolean;
   currentUser: User | null;
+  authError: string | null;
 
   // Teams and channels
   teams: TeamWithChannels[];
@@ -63,6 +64,7 @@ interface AppState {
   setAuthenticated: (isAuthenticated: boolean) => void;
   setLoading: (isLoading: boolean) => void;
   setCurrentUser: (user: User | null) => void;
+  setAuthError: (error: string | null) => void;
 
   setTeams: (teams: TeamWithChannels[]) => void;
   setTeamsLoading: (loading: boolean) => void;
@@ -93,6 +95,7 @@ const initialState = {
   isAuthenticated: false,
   isLoading: true,
   currentUser: null,
+  authError: null,
   teams: [],
   teamsLoading: false,
   selectedItem: null,
@@ -112,6 +115,7 @@ export const useAppStore = create<AppState>((set) => ({
   setAuthenticated: (isAuthenticated) => set({ isAuthenticated }),
   setLoading: (isLoading) => set({ isLoading }),
   setCurrentUser: (currentUser) => set({ currentUser }),
+  setAuthError: (authError) => set({ authError }),
 
   setTeams: (teams) => set({ teams, teamsLoading: false }),
   setTeamsLoading: (teamsLoading) => set({ teamsLoading }),
