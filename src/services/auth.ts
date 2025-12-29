@@ -45,15 +45,53 @@ export const graphScopes = [
 ];
 
 let msalInstance: PublicClientApplication | null = null;
+let msalInitPromise: Promise<PublicClientApplication> | null = null;
+
+// Login rate limiting to prevent abuse
+const LOGIN_RATE_LIMIT = {
+  maxAttempts: 3,
+  windowMs: 30000, // 30 seconds
+  attempts: [] as number[],
+};
+
+function checkLoginRateLimit(): { allowed: boolean; retryAfterMs?: number } {
+  const now = Date.now();
+  LOGIN_RATE_LIMIT.attempts = LOGIN_RATE_LIMIT.attempts.filter(
+    (timestamp) => now - timestamp < LOGIN_RATE_LIMIT.windowMs
+  );
+
+  if (LOGIN_RATE_LIMIT.attempts.length >= LOGIN_RATE_LIMIT.maxAttempts) {
+    const oldestAttempt = LOGIN_RATE_LIMIT.attempts[0];
+    const retryAfterMs = LOGIN_RATE_LIMIT.windowMs - (now - oldestAttempt);
+    return { allowed: false, retryAfterMs };
+  }
+
+  LOGIN_RATE_LIMIT.attempts.push(now);
+  return { allowed: true };
+}
+
+function resetLoginRateLimit(): void {
+  LOGIN_RATE_LIMIT.attempts = [];
+}
 
 export async function initializeMsal(): Promise<PublicClientApplication> {
   if (msalInstance) {
     return msalInstance;
   }
 
-  msalInstance = new PublicClientApplication(msalConfig);
-  await msalInstance.initialize();
-  return msalInstance;
+  // Prevent race condition - reuse existing initialization promise
+  if (msalInitPromise) {
+    return msalInitPromise;
+  }
+
+  msalInitPromise = (async () => {
+    const instance = new PublicClientApplication(msalConfig);
+    await instance.initialize();
+    msalInstance = instance;
+    return instance;
+  })();
+
+  return msalInitPromise;
 }
 
 export async function getMsalInstance(): Promise<PublicClientApplication> {
@@ -72,6 +110,13 @@ export async function clearCachedAccounts(): Promise<void> {
 }
 
 export async function login(): Promise<AccountInfo | null> {
+  // Check rate limit before attempting login
+  const rateLimit = checkLoginRateLimit();
+  if (!rateLimit.allowed) {
+    const seconds = Math.ceil((rateLimit.retryAfterMs || 0) / 1000);
+    throw new Error(`Too many login attempts. Please wait ${seconds} seconds.`);
+  }
+
   const msal = await getMsalInstance();
 
   try {
@@ -83,6 +128,7 @@ export async function login(): Promise<AccountInfo | null> {
     if (result.account) {
       msal.setActiveAccount(result.account);
       await storeTokenSecurely(result);
+      resetLoginRateLimit(); // Reset on successful login
       return result.account;
     }
     return null;
@@ -208,8 +254,8 @@ async function storeTokenSecurely(result: AuthenticationResult): Promise<void> {
         value: tokenData,
       });
     } else {
-      // Fallback to localStorage in browser
-      localStorage.setItem('slackteams_auth', tokenData);
+      // Fallback to sessionStorage in browser (more secure than localStorage)
+      sessionStorage.setItem('slackteams_auth', tokenData);
     }
   } catch (error) {
     logger.error('Failed to store token securely:', error);
@@ -222,7 +268,7 @@ async function deleteStoredToken(): Promise<void> {
       const { invoke } = await import('@tauri-apps/api/core');
       await invoke<TokenResult>('delete_token', { key: 'auth_token' });
     } else {
-      localStorage.removeItem('slackteams_auth');
+      sessionStorage.removeItem('slackteams_auth');
     }
   } catch (error) {
     logger.error('Failed to delete stored token:', error);
