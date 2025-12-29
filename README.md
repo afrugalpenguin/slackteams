@@ -3,6 +3,12 @@
 A lightweight, fast Microsoft Teams client with a Slack-inspired user interface. Built with Tauri, React, and TypeScript.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Tests](https://img.shields.io/badge/tests-157%20passing-brightgreen.svg)
+![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen.svg)
+![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)
+![React](https://img.shields.io/badge/react-19-blue.svg)
+![TypeScript](https://img.shields.io/badge/typescript-5.9-blue.svg)
+![Tauri](https://img.shields.io/badge/tauri-2.x-orange.svg)
 
 ## Why SlackTeams?
 
